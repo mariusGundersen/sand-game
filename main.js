@@ -89,7 +89,7 @@ const sandShaders = [
   void main() {
     float thisCell = lookup(0.0, 0.0).r;
 
-    if(thisCell < 0.5){
+    if(thisCell == 0.0){
       float below = lookup(0.0, -1.0).r;
       gl_FragColor = vec4(below, 0.0, 0.0, 1.0);
     }else{
@@ -122,8 +122,8 @@ const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
     1, -1, 0,
     1, 1, 0,
     //
-    -1, 1, 0,
     -1, -1, 0,
+    -1, 1, 0,
     1, 1, 0
   ],
 });
@@ -170,3 +170,13 @@ requestAnimationFrame(function render(time) {
   requestAnimationFrame(render);
 });
 
+canvas.addEventListener('click', e => {
+
+  const x = e.offsetX / devicePixelRatio;
+  const y = (canvas.offsetHeight - e.offsetY) / devicePixelRatio;
+  console.log(x, y, canvas.offsetHeight)
+
+  const data = new Uint32Array([0x00000000]);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data.buffer));
+
+})
