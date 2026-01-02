@@ -1,5 +1,8 @@
+// @ts-check
 
+// @ts-ignore
 import * as twgl from 'https://cdn.jsdelivr.net/npm/twgl.js@7.0.0/dist/7.x/twgl-full.module.js';
+
 const vertexShader = /* glsl */`
   precision highp float;
 
@@ -27,6 +30,40 @@ const renderShader = /* glsl */`
   }
 `;
 
+const renderShaders = [
+/*glsl*/ `
+  precision highp float;
+
+  attribute vec2 position;
+  varying vec2 texCoord;
+
+  void main(void) {
+    texCoord = 0.5*(position+1.0);
+    gl_Position = vec4(position, 0.0, 1.0);
+  }
+`,
+/*glsl*/ `
+  precision highp float;
+
+  uniform vec2 inverseTileTextureSize;
+  uniform sampler2D sandTexture;
+
+  varying vec2 texCoord;
+
+  vec4 lookup(float x, float y);
+
+  void main() {
+    float thisCell = lookup(0.0, 0.0).r;
+
+    gl_FragColor = vec4(thisCell, thisCell/2.0, 0.0, 1.0);
+  }
+
+  vec4 lookup(float x, float y) {
+    return texture2D(sandTexture, texCoord + inverseTileTextureSize * vec2( x, y));
+  }
+`
+]
+
 const sandShaders = [
 /*glsl*/ `
   precision highp float;
@@ -47,24 +84,35 @@ const sandShaders = [
 
   varying vec2 texCoord;
 
-  vec2 lookup(float x, float y);
+  vec4 lookup(float x, float y);
 
   void main() {
     float thisCell = lookup(0.0, 0.0).r;
 
-    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    if(thisCell < 0.5){
+      float below = lookup(0.0, -1.0).r;
+      gl_FragColor = vec4(below, 0.0, 0.0, 1.0);
+    }else{
+      float above = lookup(0.0, 1.0).r;
+      gl_FragColor = vec4(above, 0.0, 0.0, 1.0);
+    }
+
+    //gl_FragColor = vec4(thisCell, 0.0, 0.0, 1.0);
   }
 
-  vec2 lookup(float x, float y) {
-    return floor(texture2D(sandTexture, texCoord + inverseTileTextureSize * vec2( x, y)).xy*256.0);
+  vec4 lookup(float x, float y) {
+    return texture2D(sandTexture, texCoord + inverseTileTextureSize * vec2( x, y));
   }
 `
 ];
 
-const canvas = document.querySelector('canvas#triangle');
+const canvas = document.querySelector('canvas');
+if (!canvas) throw new Error(' oh noes');
 const gl = canvas.getContext("webgl");
+if (!gl) throw new Error('oh noes');
 
 const programInfo = twgl.createProgramInfo(gl, [vertexShader, renderShader]);
+const renderProgram = twgl.createProgramInfo(gl, renderShaders);
 const sandProgram = twgl.createProgramInfo(gl, sandShaders);
 
 const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
@@ -80,37 +128,45 @@ const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
   ],
 });
 
-const sand1 = twgl.createFramebufferInfo(gl, [
-  { format: gl.RGBA, type: gl.UNSIGNED_BYTE, min: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE }
-]);
-const sand2 = twgl.createFramebufferInfo(gl, [
-  { format: gl.RGBA, type: gl.UNSIGNED_BYTE, min: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE }
-]);
+const sand1 = twgl.createFramebufferInfo(gl, undefined, canvas.width, canvas.height);
+
+const data = new Uint32Array(canvas.width * canvas.height);
+data.fill(0xffffffff);
+data[canvas.width * (canvas.height - 1) + canvas.width / 2] = 0x00000000;
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data.buffer));
+
+const sand2 = twgl.createFramebufferInfo(gl, undefined, canvas.width, canvas.height);
+
+let frame = 0;
 
 requestAnimationFrame(function render(time) {
   twgl.resizeCanvasToDisplaySize(canvas, window.devicePixelRatio);
   gl.viewport(0, 0, canvas.width, canvas.height);
 
+  const [from, to] = frame % 2 === 0 ? [sand1, sand2] : [sand2, sand1];
+  frame++;
+
   gl.useProgram(sandProgram.program);
-  twgl.bindFramebufferInfo(gl, sand2);
-  twgl.setBuffersAndAttributes(gl, programInfo, bufferInfo);
-  twgl.setUniforms(programInfo, {
+  twgl.bindFramebufferInfo(gl, to);
+  twgl.setBuffersAndAttributes(gl, sandProgram, bufferInfo);
+  twgl.setUniforms(sandProgram, {
     inverseTileTextureSize: [1 / canvas.width, 1 / canvas.height],
-    sandTexture: sand1.attachments[0].attachment
+    sandTexture: from.attachments[0]
   });
 
   twgl.drawBufferInfo(gl, bufferInfo);
 
 
 
-  gl.useProgram(programInfo.program);
+  gl.useProgram(renderProgram.program);
   twgl.bindFramebufferInfo(gl, null);
-  twgl.setBuffersAndAttributes(gl, programInfo, bufferInfo);
-  twgl.setUniforms(programInfo, {
-    // and this is the uniform again
-    time: time / 1000,
+  twgl.setBuffersAndAttributes(gl, renderProgram, bufferInfo);
+  twgl.setUniforms(renderProgram, {
+    inverseTileTextureSize: [1 / canvas.width, 1 / canvas.height],
+    sandTexture: to.attachments[0]
   });
   twgl.drawBufferInfo(gl, bufferInfo);
 
   requestAnimationFrame(render);
 });
+
