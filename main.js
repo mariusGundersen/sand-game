@@ -77,8 +77,10 @@ const sandShaders = [
   }
 `,
 /*glsl*/ `
+#define SAND 0.0
   precision highp float;
 
+  uniform float direction;
   uniform vec2 inverseTileTextureSize;
   uniform sampler2D sandTexture;
 
@@ -89,12 +91,28 @@ const sandShaders = [
   void main() {
     float thisCell = lookup(0.0, 0.0).r;
 
-    if(thisCell == 0.0){
+    if(thisCell == SAND && texCoord.y > inverseTileTextureSize.y*2.0){
       float below = lookup(0.0, -1.0).r;
-      gl_FragColor = vec4(below, 0.0, 0.0, 1.0);
+      if(below == SAND){
+        float diagonally = lookup(direction, -1.0).r;
+        gl_FragColor = vec4(diagonally, 0.0, 0.0, 1.0);
+      }else{
+        gl_FragColor = vec4(below, 0.0, 0.0, 1.0);
+      }
     }else{
       float above = lookup(0.0, 1.0).r;
-      gl_FragColor = vec4(above, 0.0, 0.0, 1.0);
+      if(above == SAND){
+        gl_FragColor = vec4(above, 0.0, 0.0, 1.0);
+      }else{
+        float diagonally = lookup(-direction, 1.0).r;
+        float besides = lookup(-direction, 0.0).r;
+        if(besides == SAND && diagonally == SAND){
+          gl_FragColor = vec4(SAND, 0.0, 0.0, 1.0);
+        }else{
+          gl_FragColor = vec4(thisCell, 0.0, 0.0, 1.0);
+        }
+
+      }
     }
 
     //gl_FragColor = vec4(thisCell, 0.0, 0.0, 1.0);
@@ -132,7 +150,7 @@ const sand1 = twgl.createFramebufferInfo(gl, undefined, canvas.width, canvas.hei
 
 const data = new Uint32Array(canvas.width * canvas.height);
 data.fill(0xffffffff);
-data[canvas.width * (canvas.height - 1) + canvas.width / 2] = 0x00000000;
+//data[canvas.width * (canvas.height - 1) + canvas.width / 2] = 0x00000000;
 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data.buffer));
 
 const sand2 = twgl.createFramebufferInfo(gl, undefined, canvas.width, canvas.height);
@@ -151,7 +169,8 @@ requestAnimationFrame(function render(time) {
   twgl.setBuffersAndAttributes(gl, sandProgram, bufferInfo);
   twgl.setUniforms(sandProgram, {
     inverseTileTextureSize: [1 / canvas.width, 1 / canvas.height],
-    sandTexture: from.attachments[0]
+    sandTexture: from.attachments[0],
+    direction: frame % 2 === 0 ? 1 : -1
   });
 
   twgl.drawBufferInfo(gl, bufferInfo);
