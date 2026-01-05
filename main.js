@@ -16,6 +16,10 @@ const renderShaders = [
   }
 `,
 /*glsl*/ `
+  #define SAND vec4(1.0, 0.0, 0.0, 1.0)
+  #define AIR vec4(0.0, 0.0, 0.0, 0.0)
+  #define BLOCK vec4(0.0, 1.0, 0.0, 1.0)
+
   precision highp float;
 
   uniform vec2 inverseTileTextureSize;
@@ -26,9 +30,13 @@ const renderShaders = [
   vec4 lookup(float x, float y);
 
   void main() {
-    float thisCell = lookup(0.0, 0.0).r;
+    vec4 thisCell = lookup(0.0, 0.0);
 
-    gl_FragColor = vec4(1.0 - thisCell, 1.0 - thisCell, 1.0 - thisCell, 1.0);
+    if(thisCell == SAND){
+      gl_FragColor = vec4(0.980, 0.643, 0.376, 1.0);
+    } else {
+      gl_FragColor = vec4(0.678, 0.847, 0.902, 1.0);
+    }
   }
 
   vec4 lookup(float x, float y) {
@@ -119,16 +127,14 @@ const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
   ],
 });
 
-//twgl.resizeCanvasToDisplaySize(canvas, devicePixelRatio);
+twgl.resizeCanvasToDisplaySize(canvas, devicePixelRatio);
+const width = canvas.width / 2 / devicePixelRatio;
+const height = canvas.height / 2 / devicePixelRatio;
 
-const sand1 = twgl.createFramebufferInfo(gl, undefined, canvas.width, canvas.height);
 
-const data = new Uint32Array(canvas.width * canvas.height);
-data.fill(0x0);
-//data[canvas.width * (canvas.height - 1) + canvas.width / 2] = 0x00000000;
-gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data.buffer));
+const sand1 = twgl.createFramebufferInfo(gl, [{ min: gl.NEAREST, mag: gl.NEAREST }], width, height);
 
-const sand2 = twgl.createFramebufferInfo(gl, undefined, canvas.width, canvas.height);
+const sand2 = twgl.createFramebufferInfo(gl, [{ min: gl.NEAREST, mag: gl.NEAREST }], width, height);
 
 let frame = 0;
 
@@ -158,7 +164,7 @@ requestAnimationFrame(function render(time) {
   twgl.bindFramebufferInfo(gl, to);
   twgl.setBuffersAndAttributes(gl, sandProgram, bufferInfo);
   twgl.setUniforms(sandProgram, {
-    inverseTileTextureSize: [1 / canvas.width, 1 / canvas.height],
+    inverseTileTextureSize: [1 / width, 1 / height],
     sandTexture: from.attachments[0],
     direction: frame % 2 === 0 ? 1 : -1
   });
@@ -181,11 +187,14 @@ requestAnimationFrame(function render(time) {
   requestAnimationFrame(render);
 });
 
+const toSimSize = (/** @type {number} */ value) => value * width / canvas.offsetWidth;
+
 canvas.addEventListener('pointerdown', e => {
+  console.log(canvas.offsetHeight - e.offsetY, toSimSize(canvas.offsetHeight - e.offsetY))
   pointers.push({
     id: e.pointerId,
-    x: e.offsetX * canvas.width / canvas.offsetWidth,
-    y: (canvas.offsetHeight - e.offsetY) * canvas.width / canvas.offsetWidth
+    x: toSimSize(e.offsetX),
+    y: toSimSize(canvas.offsetHeight - e.offsetY)
   });
   canvas.setPointerCapture(e.pointerId);
 });
@@ -193,8 +202,8 @@ canvas.addEventListener('pointerdown', e => {
 canvas.addEventListener('pointermove', e => {
   const pointer = pointers.find(p => p.id === e.pointerId);
   if (pointer) {
-    pointer.x = e.offsetX * canvas.width / canvas.offsetWidth;
-    pointer.y = (canvas.offsetHeight - e.offsetY) * canvas.width / canvas.offsetWidth;
+    pointer.x = toSimSize(e.offsetX);
+    pointer.y = toSimSize(canvas.offsetHeight - e.offsetY);
   }
 });
 
