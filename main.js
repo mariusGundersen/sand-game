@@ -52,6 +52,9 @@ const sandShaders = [
 /*glsl*/ `
   #define SAND vec4(1.0, 0.0, 0.0, 1.0)
   #define AIR vec4(0.0, 0.0, 0.0, 0.0)
+  #define BLOCK vec4(0.0, 1.0, 0.0, 1.0)
+
+
   precision highp float;
 
   uniform float direction;
@@ -118,8 +121,6 @@ const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
 
 //twgl.resizeCanvasToDisplaySize(canvas, devicePixelRatio);
 
-console.log(canvas.width, canvas.height);
-
 const sand1 = twgl.createFramebufferInfo(gl, undefined, canvas.width, canvas.height);
 
 const data = new Uint32Array(canvas.width * canvas.height);
@@ -131,6 +132,9 @@ const sand2 = twgl.createFramebufferInfo(gl, undefined, canvas.width, canvas.hei
 
 let frame = 0;
 
+/**
+ * @type {{ id: number; x: number; y: number; }[]}
+ */
 let pointers = [];
 
 requestAnimationFrame(function render(time) {
@@ -143,8 +147,6 @@ requestAnimationFrame(function render(time) {
   for (const { x, y } of pointers) {
     gl.bindTexture(gl.TEXTURE_2D, from.attachments[0])
     const data = new Uint32Array([0xff0000ff]);
-
-    console.log(x, y);
 
     gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data.buffer));
   }
@@ -180,7 +182,6 @@ requestAnimationFrame(function render(time) {
 });
 
 canvas.addEventListener('pointerdown', e => {
-  console.log(e.offsetX, e.offsetY, canvas.offsetHeight, canvas.width, canvas.offsetWidth)
   pointers.push({
     id: e.pointerId,
     x: e.offsetX * canvas.width / canvas.offsetWidth,
@@ -198,14 +199,15 @@ canvas.addEventListener('pointermove', e => {
 });
 
 canvas.addEventListener('pointercancel', e => {
-  const pointer = pointers.find(p => p.id === e.pointerId);
-  if (pointer) {
+  const pointer = pointers.findIndex(p => p.id === e.pointerId);
+  if (pointer >= 0) {
     pointers.splice(pointer, 1);
   }
 })
+
 canvas.addEventListener('pointerup', e => {
-  const pointer = pointers.find(p => p.id === e.pointerId);
-  if (pointer) {
+  const pointer = pointers.findIndex(p => p.id === e.pointerId);
+  if (pointer >= 0) {
     pointers.splice(pointer, 1);
   }
 })
