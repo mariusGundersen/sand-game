@@ -86,7 +86,7 @@ const sandShaders = [
   vec4 getNextState() {
     vec4 thisCell = lookup(0.0, 0.0);
 
-    if (isSand(thisCell) && texCoord.y > inverseTileTextureSize.y) {
+    if (isSand(thisCell)) {
       vec4 below = lookup(0.0, -1.0);
       if (isAir(below)) {
         return below;
@@ -142,13 +142,15 @@ const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
 });
 
 twgl.resizeCanvasToDisplaySize(canvas, devicePixelRatio);
-const width = canvas.width / 2 / devicePixelRatio;
-const height = canvas.height / 2 / devicePixelRatio;
+const width = Math.floor(canvas.width / 2 / devicePixelRatio);
+const height = Math.floor(canvas.height / 2 / devicePixelRatio);
 
+const bottomRow = new Uint32Array(width * height);
+bottomRow.fill(0xff, 0, width);
 
-const sand1 = twgl.createFramebufferInfo(gl, [{ min: gl.NEAREST, mag: gl.NEAREST }], width, height);
+const sand1 = twgl.createFramebufferInfo(gl, [{ min: gl.NEAREST, mag: gl.NEAREST, wrap: gl.CLAMP_TO_EDGE, type: gl.UNSIGNED_BYTE, src: new Uint8Array(bottomRow.buffer) }], width, height);
 
-const sand2 = twgl.createFramebufferInfo(gl, [{ min: gl.NEAREST, mag: gl.NEAREST }], width, height);
+const sand2 = twgl.createFramebufferInfo(gl, [{ min: gl.NEAREST, mag: gl.NEAREST, wrap: gl.CLAMP_TO_EDGE, type: gl.UNSIGNED_BYTE, src: new Uint8Array(bottomRow.buffer) }], width, height);
 
 let frame = 0;
 
