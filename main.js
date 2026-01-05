@@ -16,30 +16,37 @@ const renderShaders = [
   }
 `,
 /*glsl*/ `
-  #define SAND vec4(1.0, 0.0, 0.0, 1.0)
-  #define AIR vec4(0.0, 0.0, 0.0, 0.0)
-  #define BLOCK vec4(0.0, 1.0, 0.0, 1.0)
-
   precision highp float;
 
   uniform sampler2D sandTexture;
 
   varying vec2 texCoord;
 
-  vec4 lookup();
+  bool isSand(vec4 value) {
+    return value.r == 1.0;
+  }
+  bool isAir(vec4 value) {
+    return value == vec4(0.0, 0.0, 0.0, 0.0);
+  }
+  vec4 lookup() {
+    return texture2D(sandTexture, texCoord);
+  }
+
+  vec3 hsv2rgb(vec3 c)
+{
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
 
   void main() {
     vec4 thisCell = lookup();
 
-    if(thisCell == SAND){
-      gl_FragColor = vec4(0.980, 0.643, 0.376, 1.0);
+    if (isSand(thisCell)) {
+      gl_FragColor = vec4(hsv2rgb(vec3(thisCell.b, 0.75, 0.66)), 1.0);
     } else {
       gl_FragColor = vec4(0.678, 0.847, 0.902, 1.0);
     }
-  }
-
-  vec4 lookup() {
-    return texture2D(sandTexture, texCoord);
   }
 `
 ]
@@ -57,11 +64,6 @@ const sandShaders = [
   }
 `,
 /*glsl*/ `
-  #define SAND vec4(1.0, 0.0, 0.0, 1.0)
-  #define AIR vec4(0.0, 0.0, 0.0, 0.0)
-  #define BLOCK vec4(0.0, 1.0, 0.0, 1.0)
-
-
   precision highp float;
 
   uniform float direction;
@@ -70,37 +72,50 @@ const sandShaders = [
 
   varying vec2 texCoord;
 
-  vec4 lookup(float x, float y);
+  bool isSand(vec4 value) {
+    return value.r == 1.0;
+  }
+  bool isAir(vec4 value) {
+    return value == vec4(0.0, 0.0, 0.0, 0.0);
+  }
 
-  void main() {
+  vec4 lookup(float x, float y) {
+    return texture2D(sandTexture, texCoord + inverseTileTextureSize * vec2( x, y));
+  }
+
+  vec4 getNextState() {
     vec4 thisCell = lookup(0.0, 0.0);
 
-    if(thisCell == SAND && texCoord.y > inverseTileTextureSize.y){
+    if (isSand(thisCell) && texCoord.y > inverseTileTextureSize.y) {
       vec4 below = lookup(0.0, -1.0);
-      if(below == SAND){
+      if (isAir(below)) {
+        return below;
+      } else {
         vec4 diagonally = lookup(direction, -1.0);
-        gl_FragColor = diagonally;
-      }else{
-        gl_FragColor = below;
+        if (isAir(diagonally)) {
+          return diagonally;
+        } else {
+          return thisCell;
+        }
       }
-    }else{
+    } else {
       vec4 above = lookup(0.0, 1.0);
-      if(above == SAND){
-        gl_FragColor = above;
-      }else{
+      if (isSand(above)) {
+        return above;
+      } else {
         vec4 diagonally = lookup(-direction, 1.0);
         vec4 besides = lookup(-direction, 0.0);
-        if(besides == SAND && diagonally == SAND){
-          gl_FragColor = SAND;
-        }else{
-          gl_FragColor = thisCell;
+        if (isSand(besides) && isSand(diagonally)) {
+          return diagonally;
+        } else {
+          return thisCell;
         }
       }
     }
   }
 
-  vec4 lookup(float x, float y) {
-    return texture2D(sandTexture, texCoord + inverseTileTextureSize * vec2( x, y));
+  void main() {
+    gl_FragColor = vec4(getNextState());
   }
 `
 ];
@@ -138,7 +153,7 @@ const sand2 = twgl.createFramebufferInfo(gl, [{ min: gl.NEAREST, mag: gl.NEAREST
 let frame = 0;
 
 /**
- * @type {{ id: number; x: number; y: number; }[]}
+ * @type {{ id: number; x: number; y: number; hue: number; }[]}
  */
 let pointers = [];
 
@@ -151,9 +166,10 @@ requestAnimationFrame(function render(time) {
   frame++;
 
   // DRAW
-  for (const { x, y } of pointers) {
+  for (const { x, y, hue } of pointers) {
     gl.bindTexture(gl.TEXTURE_2D, from.attachments[0])
-    const data = new Uint32Array([0xff0000ff, 0x0, 0xff0000ff, 0x0, 0xff0000ff]);
+    const sand = (0 << 24) | (hue << 16) | (0 << 8) | (0xff << 0);
+    const data = new Uint32Array([sand, 0x0, sand, 0x0, sand]);
 
     gl.texSubImage2D(gl.TEXTURE_2D, 0, clamp(x - 2, 0, width - 5), y, 5, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data.buffer));
   }
@@ -191,7 +207,8 @@ canvas.addEventListener('pointerdown', e => {
   pointers.push({
     id: e.pointerId,
     x: toSimSize(e.offsetX),
-    y: toSimSize(canvas.offsetHeight - e.offsetY)
+    y: toSimSize(canvas.offsetHeight - e.offsetY),
+    hue: Math.floor(Math.random() * 0xff)
   });
   canvas.setPointerCapture(e.pointerId);
 });
