@@ -143,6 +143,8 @@ let frame = 0;
  */
 let pointers = [];
 
+const clamp = (/** @type {number} */ v, /** @type {number} */ min, /** @type {number} */ max) => Math.max(min, Math.min(v, max))
+
 requestAnimationFrame(function render(time) {
   gl.viewport(0, 0, canvas.width, canvas.height);
 
@@ -152,9 +154,9 @@ requestAnimationFrame(function render(time) {
   // DRAW
   for (const { x, y } of pointers) {
     gl.bindTexture(gl.TEXTURE_2D, from.attachments[0])
-    const data = new Uint32Array([0xff0000ff]);
+    const data = new Uint32Array([0xff0000ff, 0x0, 0xff0000ff, 0x0, 0xff0000ff]);
 
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data.buffer));
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, clamp(x - 2, 0, width - 5), y, 5, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data.buffer));
   }
 
 
@@ -190,7 +192,6 @@ requestAnimationFrame(function render(time) {
 const toSimSize = (/** @type {number} */ value) => value * width / canvas.offsetWidth;
 
 canvas.addEventListener('pointerdown', e => {
-  console.log(canvas.offsetHeight - e.offsetY, toSimSize(canvas.offsetHeight - e.offsetY))
   pointers.push({
     id: e.pointerId,
     x: toSimSize(e.offsetX),
