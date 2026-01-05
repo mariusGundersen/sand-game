@@ -22,15 +22,14 @@ const renderShaders = [
 
   precision highp float;
 
-  uniform vec2 inverseTileTextureSize;
   uniform sampler2D sandTexture;
 
   varying vec2 texCoord;
 
-  vec4 lookup(float x, float y);
+  vec4 lookup();
 
   void main() {
-    vec4 thisCell = lookup(0.0, 0.0);
+    vec4 thisCell = lookup();
 
     if(thisCell == SAND){
       gl_FragColor = vec4(0.980, 0.643, 0.376, 1.0);
@@ -39,8 +38,8 @@ const renderShaders = [
     }
   }
 
-  vec4 lookup(float x, float y) {
-    return texture2D(sandTexture, texCoord + inverseTileTextureSize * vec2( x, y));
+  vec4 lookup() {
+    return texture2D(sandTexture, texCoord);
   }
 `
 ]
@@ -173,15 +172,12 @@ requestAnimationFrame(function render(time) {
 
   twgl.drawBufferInfo(gl, bufferInfo);
 
-
-
   // RENDER
 
   gl.useProgram(renderProgram.program);
   twgl.bindFramebufferInfo(gl, null);
   twgl.setBuffersAndAttributes(gl, renderProgram, bufferInfo);
   twgl.setUniforms(renderProgram, {
-    inverseTileTextureSize: [1 / canvas.width, 1 / canvas.height],
     sandTexture: to.attachments[0]
   });
   twgl.drawBufferInfo(gl, bufferInfo);
@@ -208,17 +204,18 @@ canvas.addEventListener('pointermove', e => {
   }
 });
 
-canvas.addEventListener('pointercancel', e => {
-  const pointer = pointers.findIndex(p => p.id === e.pointerId);
+/**
+ * @param {PointerEvent} event
+ */
+function onPointerUp(event) {
+  const pointer = pointers.findIndex(p => p.id === event.pointerId);
   if (pointer >= 0) {
     pointers.splice(pointer, 1);
   }
-})
+};
 
-canvas.addEventListener('pointerup', e => {
-  const pointer = pointers.findIndex(p => p.id === e.pointerId);
-  if (pointer >= 0) {
-    pointers.splice(pointer, 1);
-  }
-})
+
+canvas.addEventListener('pointercancel', onPointerUp)
+
+canvas.addEventListener('pointerup', onPointerUp)
 
