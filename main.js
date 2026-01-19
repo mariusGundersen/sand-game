@@ -81,10 +81,10 @@ const sandShaders = [
 
   vec4 lookup(float x, float y) {
     // make sure there is only air above the viewport
-    if(pos.y > 1.0) return vec4(0.0);
+    if(texCoord.y > 1.0) return vec4(0.0);
 
     // make sure there is only sand below the viewport
-    if(pos.y < 0.0) return vec4(1.0);
+    if(texCoord.y < 0.0) return vec4(1.0);
 
     return texture2D(sandTexture, texCoord + inverseTileTextureSize * vec2( x, y));
   }
