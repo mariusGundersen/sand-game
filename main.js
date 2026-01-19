@@ -178,9 +178,9 @@ requestAnimationFrame(function render(time) {
   for (const { x, y, hue } of pointers) {
     gl.bindTexture(gl.TEXTURE_2D, from.attachments[0])
     const sand = (0 << 24) | (hue << 16) | (0 << 8) | (0xff << 0);
-    const data = new Uint32Array([sand, 0x0, sand, 0x0, sand]);
+    const data = new Uint32Array([sand, sand, sand, 0x0, 0x0, 0x0]);
 
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, clamp(x - 2, 0, width - 5), y, 5, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data.buffer));
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, clamp(x - 1, 0, width - 3), clamp(y, 0, height - 1), 3, 2, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data.buffer));
   }
 
 
