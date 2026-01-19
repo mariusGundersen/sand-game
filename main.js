@@ -80,6 +80,12 @@ const sandShaders = [
   }
 
   vec4 lookup(float x, float y) {
+    // make sure there is only air above the viewport
+    if(pos.y > 1.0) return vec4(0.0);
+
+    // make sure there is only sand below the viewport
+    if(pos.y < 0.0) return vec4(1.0);
+
     return texture2D(sandTexture, texCoord + inverseTileTextureSize * vec2( x, y));
   }
 
@@ -92,7 +98,8 @@ const sandShaders = [
         return below;
       } else {
         vec4 diagonally = lookup(direction, -1.0);
-        if (isAir(diagonally)) {
+        vec4 besides = lookup(direction, 0.0);
+        if (isAir(besides) && isAir(diagonally)) {
           return diagonally;
         } else {
           return thisCell;
